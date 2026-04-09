@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>銀行匯款模擬器</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --success: #16a34a;
+            --danger: #dc2626;
+            --bg: #f8fafc;
+        }
+
+        body {
+            font-family: "PingFang TC", "Microsoft JhengHei", sans-serif;
+            background-color: var(--bg);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .bank-card {
+            background: white;
+            padding: 2rem;
+            border-radius: 1rem;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 500px;
+        }
+
+        h2 { text-align: center; color: #1e293b; margin-bottom: 1.5rem; }
+
+        /* 帳戶顯示區域 */
+        .accounts-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .account-box {
+            padding: 1rem;
+            border: 2px solid #e2e8f0;
+            border-radius: 0.75rem;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .account-box.active {
+            border-color: var(--primary);
+            background: #eff6ff;
+        }
+
+        .balance {
+            font-size: 1.5rem;
+            font-weight: bold;
+            display: block;
+            margin-top: 0.5rem;
+        }
+
+        /* 交易表單 */
+        .transfer-form {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        input {
+            padding: 0.75rem;
+            border: 1px solid #cbd5e1;
+            border-radius: 0.5rem;
+            font-size: 1rem;
+        }
+
+        button {
+            padding: 0.75rem;
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 0.5rem;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        button:disabled {
+            background-color: #94a3b8;
+            cursor: not-allowed;
+        }
+
+        /* 交易日誌 */
+        .logs {
+            margin-top: 1.5rem;
+            border-top: 1px solid #e2e8f0;
+            padding-top: 1rem;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+
+        .log-item {
+            font-size: 0.85rem;
+            margin-bottom: 0.5rem;
+            padding: 0.25rem 0.5rem;
+            border-left: 3px solid #cbd5e1;
+        }
+
+        .log-success { border-left-color: var(--success); color: var(--success); }
+        .log-error { border-left-color: var(--danger); color: var(--danger); }
+
+        /* 動畫效果 */
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        .animate-success { animation: pulse 0.5s ease-in-out; }
+    </style>
+</head>
+<body>
+
+<div class="bank-card">
+    <h2>🏦 銀行匯款模擬系統</h2>
+
+    <div class="accounts-grid">
+        <div id="box-sender" class="account-box">
+            <div>我的帳戶 (Alice)</div>
+            <span class="balance" id="val-sender">$1,000</span>
+        </div>
+        <div id="box-receiver" class="account-box">
+            <div>目的帳戶 (Bob)</div>
+            <span class="balance" id="val-receiver">$50,000,000,000</span>
+        </div>
+    </div>
+
+    <div class="transfer-form">
+        <label for="amount">轉帳金額</label>
+        <input type="number" id="amount" placeholder="請輸入金額" min="1">
+        <button id="btn-transfer">確認發起轉帳</button>
+    </div>
+
+    <div class="logs" id="logs">
+        <div class="log-item">系統就緒，等待操作...</div>
+    </div>
+</div>
+
+<script>
+    /**
+     * 模擬資料庫狀態
+     */
+    const state = {
+        sender: 1000,
+        receiver: 50000000000,
+        isProcessing: false
+    };
+
+    const btnTransfer = document.getElementById('btn-transfer');
+    const inputAmount = document.getElementById('amount');
+    const logsContainer = document.getElementById('logs');
+
+    /**
+     * 更新 UI 顯示
+     */
+    function updateDisplay(highlightId = null) {
+        document.getElementById('val-sender').innerText = `$${state.sender.toLocaleString()}`;
+        document.getElementById('val-receiver').innerText = `$${state.receiver.toLocaleString()}`;
+        
+        if (highlightId) {
+            const el = document.getElementById(highlightId);
+            el.classList.add('animate-success');
+            setTimeout(() => el.classList.remove('animate-success'), 500);
+        }
+    }
+
+    /**
+     * 新增交易日誌
+     */
+    function addLog(msg, type = '') {
+        const div = document.createElement('div');
+        const now = new Date().toLocaleTimeString();
+        div.className = `log-item ${type ? 'log-' + type : ''}`;
+        div.innerText = `[${now}] ${msg}`;
+        logsContainer.prepend(div);
+    }
+
+    /**
+     * 核心轉帳邏輯 (模擬非同步)
+     */
+    async function performTransfer() {
+        const amount = parseInt(inputAmount.value);
+
+        // 1. 前端初步驗證
+        if (isNaN(amount) || amount <= 0) {
+            addLog("請輸入正確的金額", "error");
+            return;
+        }
+
+        if (amount > state.sender) {
+            addLog("餘額不足，無法匯款", "error");
+            return;
+        }
+
+        // 2. 鎖定 UI (防止重複提交 / Idempotency 概念)
+        state.isProcessing = true;
+        btnTransfer.disabled = true;
+        btnTransfer.innerText = "交易處理中...";
+        addLog(`正在連線銀行伺服器，預計匯出 $${amount}...`);
+
+        try {
+            // 3. 模擬網路延遲與伺服器處理時間
+            await new Promise((resolve, reject) => {
+                setTimeout(() => {
+                    // 模擬 10% 的機率交易失敗 (網路問題)
+                    if (Math.random() < 0.1) reject("網路連線逾時");
+                    else resolve();
+                }, 1500);
+            });
+
+            // 4. 變更狀態 (在真實環境中，這部分由後端 DB Transaction 處理)
+            state.sender -= amount;
+            state.receiver += amount;
+
+            // 5. 更新成功結果
+            updateDisplay('box-receiver');
+            addLog(`轉帳成功！已匯入 Bob 帳戶 $${amount}`, "success");
+            inputAmount.value = '';
+
+        } catch (error) {
+            addLog(`交易失敗: ${error}`, "error");
+        } finally {
+            // 6. 解除 UI 鎖定
+            state.isProcessing = false;
+            btnTransfer.disabled = false;
+            btnTransfer.innerText = "確認發起轉帳";
+        }
+    }
+
+    // 監聽按鈕點擊
+    btnTransfer.addEventListener('click', performTransfer);
+
+    // 支援 Enter 鍵觸發
+    inputAmount.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter' && !state.isProcessing) performTransfer();
+    });
+</script>
+
+</body>
+</html>
